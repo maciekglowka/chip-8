@@ -34,16 +34,19 @@ impl Cpu {
         self.load(addr, data);
         self.pc = addr;
     }
-    pub fn run(&mut self) -> Result<(), ChipError> {
-        loop {
-            self.step()?;
-        }
-    }
+    // pub fn run(&mut self) -> Result<(), ChipError> {
+    //     loop {
+    //         self.step()?;
+    //     }
+    // }
     fn load(&mut self, addr: u16, data: &[u8]) {
         let end = addr as usize + data.len();
         self.memory[addr as usize..end].copy_from_slice(data);
     }
-    fn step(&mut self) -> Result<(), ChipError> {
+    pub fn get_display_buffer(&self) -> &[u8] {
+        self.display.get_buffer()
+    }
+    pub fn step(&mut self) -> Result<(), ChipError> {
         let op = self.get_current_opcode()?;
         self.pc += 2;
         match op {
@@ -52,17 +55,31 @@ impl Cpu {
             (0, _, _, _) => (),
             (1, n0, n1, n2) => self.pc = u16_from_three(n0, n1, n2),
             (6, x, n0, n1) => {
-                self.v[x as usize] = u8_from_two(n0, n1);
+                self.set_reg(x, u8_from_two(n0, n1))?;
             },
             (7, x, n0, n1) => {
-                self.v[x as usize] = self.v[x as usize].wrapping_add(u8_from_two(n0, n1));
+                let val = self.get_reg(x)?.wrapping_add(u8_from_two(n0, n1));
+                self.set_reg(x, val)?;
             },
             (0xA, n0, n1, n2) => {
                 self.i = u16_from_three(n0, n1, n2);
             },
+            (0xD, x, y, n) => {
+                if self.i + n as u16 >= self.memory.len() as u16 {
+                    return Err(ChipError::IllegalAddr(self.i + n as u16));
+                }
+                let data = &self.memory[self.i as usize..self.i as usize + n as usize];
+                let flag = self.display.blit_sprite(
+                    *self.get_reg(x)? as usize,
+                    *self.get_reg(y)? as usize,
+                    data,
+                    n as usize
+                );
+                self.v[0xF] = if flag == 0 { 1 } else { 0 };
+            },
             _ => return Err(ChipError::IllegalInst(u16_from_two(
-                self.memory[self.pc as usize],
-                self.memory[self.pc as usize + 1]
+                self.memory[self.pc as usize - 2],
+                self.memory[self.pc as usize - 1]
             ))),
         };
         Ok(())
@@ -78,6 +95,13 @@ impl Cpu {
             self.memory[addr + 1] >> 4,
             self.memory[addr + 1] & 0x0F,
         ))
+    }
+    fn get_reg(&self, i: u8) -> Result<&u8, ChipError> {
+        self.v.get(i as usize).ok_or(ChipError::IllegalReg(i))
+    }
+    fn set_reg(&mut self, i: u8, val: u8) -> Result<(), ChipError> {
+        *(self.v.get_mut(i as usize).ok_or(ChipError::IllegalReg(i))?) = val; 
+        Ok(())
     }
 }
 
@@ -170,5 +194,42 @@ mod tests {
         let _ = cpu.step();
         assert!(cpu.i == 0x02C5);
         assert!(cpu.pc == 0x202);
+    }
+    #[test]
+    fn blit_test() {
+        // based on I drawing from the IBM logo rom
+        let mut cpu = Cpu::new();
+        let mut rom = [0; 0xFF];
+        let ins = [
+            0x00, 0xe0,
+            0xa2, 0x2a,
+            0x60, 0x0c,
+            0x61, 0x08,
+            0xd0, 0x1f
+        ];
+        let data = [
+            0xff, 0x00, 0xff, 0x00, 0x3c, 0x00, 0x3c, 0x00,
+            0x3c, 0x00, 0x3c, 0x00, 0xff, 0x00, 0xff
+        ];
+        rom[0x0..0xA].copy_from_slice(&ins);
+        rom[0x2a..0x39].copy_from_slice(&data);
+        cpu.load_rom(0x200, &rom);
+        for _ in 0..5 {
+            let _ = cpu.step();
+        }
+        let buffer = cpu.display.get_buffer();
+        assert!(cpu.v[0] == 0x0c);
+        assert!(cpu.v[1] == 0x08);
+        assert!(cpu.i == 0x22a);
+        let start = (0x0c + 0x08 * 64) / 8;
+        let row = crate::globals::SCREEN_WIDTH / 8;
+        assert!(buffer[start] == 0b00001111);
+        assert!(buffer[start + 1] == 0b11110000);
+        assert!(buffer[start + row] == 0b00000000);
+        assert!(buffer[start + row + 1] == 0b00000000);
+        assert!(buffer[start + 2 * row] == 0b00001111);
+        assert!(buffer[start + 2 * row + 1] == 0b11110000);
+        assert!(buffer[start + 4 * row] == 0b00000011);
+        assert!(buffer[start + 4 * row + 1] == 0b11000000);
     }
 }

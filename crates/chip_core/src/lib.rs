@@ -2,5 +2,7 @@
 mod cpu;
 mod display;
 mod errors;
-mod globals;
+pub mod globals;
 mod utils;
+
+pub use cpu::Cpu;

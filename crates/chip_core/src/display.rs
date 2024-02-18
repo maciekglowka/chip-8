@@ -11,7 +11,7 @@ impl Display {
         }
     }
     pub fn clear(&mut self) {
-        self.buffer = [0; SCREEN_BUFFER_SIZE];
+        self.buffer = [0x0; SCREEN_BUFFER_SIZE];
     }
     pub fn load(&mut self, data: &[u8; SCREEN_BUFFER_SIZE]) {
         self.buffer.copy_from_slice(data);
@@ -19,11 +19,14 @@ impl Display {
     pub fn get_buffer(&self) -> &[u8; SCREEN_BUFFER_SIZE] {
         &self.buffer
     }
-    pub fn blit_sprite(&mut self, x: usize, y: usize, data: &[u8], lines: usize) {
-        let mut cur = x % SCREEN_WIDTH + y * SCREEN_WIDTH;
+    /// returns a collision flag
+    pub fn blit_sprite(&mut self, mut x: usize, y: usize, data: &[u8], lines: usize) -> u8 {
+        x = x % SCREEN_WIDTH;
+        let mut flag = 0;
         for i in 0..lines {
-
+            flag |= self.blit_byte(x, y + i, data[i]);
         }
+        flag
     }
     /// returns a collision flag
     fn blit_byte(&mut self, x: usize, y: usize, mut data: u8) -> u8 {
@@ -139,5 +142,35 @@ mod tests {
         assert!(flag == 0x0);
         assert!(display.buffer[target] == 0b00010101);
         assert!(display.buffer[target+1] == 0b11101110);
+    }
+    #[test]
+    fn blit_sprite_one_line() {
+        let mut display = Display::new();
+        let flag = display.blit_sprite(8, 2, &[0b10101011], 1);
+        assert!(flag == 0x0);
+        let target = (8 + 2 * 64) / 8;
+        assert!(display.buffer[target-1] == 0x0);
+        assert!(display.buffer[target] == 0b10101011);
+        assert!(display.buffer[target+1] == 0x0);
+    }
+    #[test]
+    fn blit_sprite_multi_line() {
+        let mut display = Display::new();
+        let sprite = [
+            0b10101011,
+            0b11101011,
+            0b10111011,
+        ];
+        let flag = display.blit_sprite(8, 2, &sprite, 3);
+        assert!(flag == 0x0);
+        let target = (8 + 2 * SCREEN_WIDTH) / 8;
+        let row_offset = SCREEN_WIDTH / 8;
+        assert!(display.buffer[target-row_offset] == 0x0);
+        assert!(display.buffer[target-1] == 0x0);
+        assert!(display.buffer[target] == 0b10101011);
+        assert!(display.buffer[target+1] == 0x0);
+        assert!(display.buffer[target+row_offset] == 0b11101011);
+        assert!(display.buffer[target + 2*row_offset] == 0b10111011);
+        assert!(display.buffer[target + 3*row_offset] == 0x0);
     }
 }
