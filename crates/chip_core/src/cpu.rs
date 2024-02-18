@@ -51,9 +51,14 @@ impl Cpu {
         self.pc += 2;
         match op {
             (0, 0, 0xE, 0) => self.display.clear(),
+            (0, 0, 0xE, 0xE) => self.pc = self.pop_stack()?,
             // machine subroutine -> ignored
             (0, _, _, _) => (),
             (1, n0, n1, n2) => self.pc = u16_from_three(n0, n1, n2),
+            (2, n0, n1, n2) => {
+                self.push_stack(self.pc)?;
+                self.pc = u16_from_three(n0, n1, n2);
+            },
             (6, x, n0, n1) => {
                 self.set_reg(x, u8_from_two(n0, n1))?;
             },
@@ -103,6 +108,17 @@ impl Cpu {
         *(self.v.get_mut(i as usize).ok_or(ChipError::IllegalReg(i))?) = val; 
         Ok(())
     }
+    fn push_stack(&mut self, val: u16) -> Result<(), ChipError> {
+        self.stack[self.sp] = val;
+        self.sp += 1;
+        if self.sp >= STACK_SIZE { return Err(ChipError::StackOverflow) };
+        Ok(())
+    }
+    fn pop_stack(&mut self) -> Result<u16, ChipError> {
+        if self.sp == 0 { return Err(ChipError::StackUnderflow) }
+        self.sp -= 1;
+        Ok(self.stack[self.sp])
+    }
 }
 
 #[cfg(test)]
@@ -139,6 +155,17 @@ mod tests {
         assert!(cpu.pc == 0x202);
     }
     #[test]
+    fn op_00ee() {
+        let mut cpu = Cpu::new();
+        cpu.pc = 0x200;
+        cpu.memory[0x200] = 0x00;
+        cpu.memory[0x201] = 0xEE;
+        let _ = cpu.push_stack(0x0232);
+        let _ = cpu.step();
+        assert!(cpu.pc == 0x232);
+        assert!(cpu.sp == 0);
+    }
+    #[test]
     fn op_1nnn() {
         let mut cpu = Cpu::new();
         cpu.pc = 0x200;
@@ -146,6 +173,17 @@ mod tests {
         cpu.memory[0x201] = 0x5f;
         let _ = cpu.step();
         assert!(cpu.pc == 0x0a5f);
+    }
+    #[test]
+    fn op_2nnn() {
+        let mut cpu = Cpu::new();
+        cpu.pc = 0x200;
+        cpu.memory[0x200] = 0x2a;
+        cpu.memory[0x201] = 0x5f;
+        let _ = cpu.step();
+        assert!(cpu.pc == 0x0a5f);
+        assert!(cpu.stack[0] == 0x0202);
+        assert!(cpu.sp == 1);
     }
     #[test]
     fn op_6xnn() {

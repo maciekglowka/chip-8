@@ -4,4 +4,5 @@ pub enum ChipError {
     IllegalAddr(u16),
     IllegalReg(u8),
     StackOverflow,
+    StackUnderflow
 }
