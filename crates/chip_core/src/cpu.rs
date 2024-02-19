@@ -17,6 +17,7 @@ pub struct Cpu {
     delay_timer: u8,
     sound_timer: u8,
     keys: [bool; 0x10],
+    prev_keys: [bool; 0x10],
     random_seed: u32,
     redraw: bool
 }
@@ -33,6 +34,7 @@ impl Cpu {
             delay_timer: 0,
             sound_timer: u8::MAX,
             keys: [false; 0x10],
+            prev_keys: [false; 0x10],
             random_seed: 0x5321a409,
             redraw: false,
         };
@@ -63,7 +65,12 @@ impl Cpu {
         self.random_seed = val;
     }
     pub fn set_keys(&mut self, keys: [bool; 0x10]) {
+        self.prev_keys = self.keys;
         self.keys = keys;
+    }
+    pub fn decrease_timers(&mut self) {
+        self.delay_timer = self.delay_timer.saturating_sub(1);
+        self.sound_timer = self.sound_timer.saturating_sub(1);
     }
     pub fn step(&mut self) -> Result<(), ChipError> {
         let op = self.get_current_opcode()?;
@@ -157,7 +164,8 @@ impl Cpu {
             (0xE, x, 0xA, 1) => if !*self.get_key(*self.get_reg(x)?)? { self.pc += 2 },
             (0xF, x, 0, 7) => self.set_reg(x, self.delay_timer)?,
             (0xF, x, 0, 0xA) => {
-                if let Some(pressed) = self.keys.iter().enumerate().find(|(_, a)| **a) {
+                // detect a release
+                if let Some(pressed) = self.prev_keys.iter().enumerate().find(|(i, a)| **a && !self.keys[*i]) {
                     self.set_reg(x, pressed.0 as u8)?;
                 } else {
                     self.pc -= 2;

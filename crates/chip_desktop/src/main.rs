@@ -41,6 +41,7 @@ fn main() {
     let context = softbuffer::Context::new(window.clone()).unwrap();
     let mut surface = softbuffer::Surface::new(&context, window.clone()).unwrap();
     let mut start = std::time::Instant::now();
+    let mut tick = std::time::Instant::now();
 
     event_loop.set_control_flow(ControlFlow::Poll);
 
@@ -61,12 +62,12 @@ fn main() {
                     }
                     if cpu.take_redraw() {
                         let mut buffer = surface.buffer_mut().unwrap();
-                        let start = std::time::Instant::now();
+                        // let start = std::time::Instant::now();
                         read_buffer(&mut buffer, &cpu);
-                        println!("Redraw {}", start.elapsed().as_secs_f32());
+                        // println!("Redraw {}", start.elapsed().as_secs_f32());
                         buffer.present().unwrap();
                     }
-                    // println!("{} {}", 1. / start.elapsed().as_secs_f32(), start.elapsed().as_secs_f32());
+                    println!("{} {}", 1. / start.elapsed().as_secs_f32(), start.elapsed().as_secs_f32());
                     start = std::time::Instant::now();
                 },
                 Event::WindowEvent { window_id, event: WindowEvent::KeyboardInput { event, .. } } => {
@@ -97,6 +98,10 @@ fn main() {
                     elwt.exit();
                 },
                 Event::AboutToWait => {
+                    if tick.elapsed().as_secs_f32() >= 1. {
+                        tick = std::time::Instant::now();
+                        cpu.decrease_timers();
+                    }
                     if start.elapsed().as_micros() >= STEP_DELAY_MICROS {
                         window.request_redraw();
                     }
