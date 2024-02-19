@@ -2,7 +2,7 @@ use crate::{
     display::Display,
     errors::ChipError,
     font::FONT,
-    globals::{RAM_SIZE, STACK_SIZE, REG_COUNT, FONT_ADDR},
+    globals::{RAM_SIZE, STACK_SIZE, REG_COUNT, FONT_ADDR, SHIFT_OP_USE_VY},
     utils::{u8_from_two, u16_from_two, u16_from_three}
 };
 
@@ -117,8 +117,7 @@ impl Cpu {
                 self.set_flag(!overflow);
             },
             (8, x, y, 6) => {
-                // TODO configure op ambuguity
-                let val = *self.get_reg(y)?;
+                let val = *self.get_reg(if SHIFT_OP_USE_VY {y} else {x})?;
                 self.set_reg(x, val >> 1)?;
                 self.set_flag(val & 1 == 1);
             },
@@ -128,8 +127,7 @@ impl Cpu {
                 self.set_flag(!overflow);
             },
             (8, x, y, 0xE) => {
-                // TODO configure op ambuguity
-                let val = *self.get_reg(y)?;
+                let val = *self.get_reg(if SHIFT_OP_USE_VY {y} else {x})?;
                 self.set_reg(x, val << 1)?;
                 self.set_flag(val >> 7 == 1);
             },

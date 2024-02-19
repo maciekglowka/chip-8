@@ -21,7 +21,7 @@ const H: usize = SCALING * SCREEN_HEIGHT;
 const STEP_DELAY_MICROS: u128 = 1440;
 
 fn main() {
-    let ibm = include_bytes!("../../../.local/Tetris.ch8");
+    let ibm = include_bytes!("../../../.local/airplane.chip8");
     println!("CHIP-8");
 
     let mut cpu = Cpu::new();
@@ -61,7 +61,7 @@ fn main() {
                         println!("{:?}", e);
                     }
                     if cpu.take_redraw() {
-                        println!("{:?}", cpu.v[0xf]);
+                        // println!("{:?}", cpu.v[0xf]);
                         let mut buffer = surface.buffer_mut().unwrap();
                         // let start = std::time::Instant::now();
                         read_buffer(&mut buffer, &cpu);
