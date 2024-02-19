@@ -3,9 +3,10 @@ use std::{
     rc::Rc
 };
 use winit::{
-    event::{Event, WindowEvent},
+    event::{Event, WindowEvent, KeyEvent, ElementState},
     dpi::PhysicalSize,
     event_loop::{EventLoop, ControlFlow},
+    keyboard::KeyCode,
     window::WindowBuilder
 };
 
@@ -20,7 +21,7 @@ const H: usize = SCALING * SCREEN_HEIGHT;
 const STEP_DELAY_MICROS: u128 = 1440;
 
 fn main() {
-    let ibm = include_bytes!("../../../.local/flags.ch8");
+    let ibm = include_bytes!("../../../.local/keypad.ch8");
     println!("CHIP-8");
 
     let mut cpu = Cpu::new();
@@ -43,6 +44,8 @@ fn main() {
 
     event_loop.set_control_flow(ControlFlow::Poll);
 
+    let mut keys = [false; 0x10];
+
     event_loop.run(move |event, elwt| {
             match event {
                 Event::WindowEvent { window_id, event: WindowEvent::Resized(size) } => {
@@ -52,6 +55,7 @@ fn main() {
                     );
                 },
                 Event::WindowEvent { window_id, event: WindowEvent::RedrawRequested } => {
+                    cpu.set_keys(keys);
                     if let Err(e) = cpu.step() {
                         println!("{:?}", e);
                     }
@@ -64,6 +68,30 @@ fn main() {
                     }
                     // println!("{} {}", 1. / start.elapsed().as_secs_f32(), start.elapsed().as_secs_f32());
                     start = std::time::Instant::now();
+                },
+                Event::WindowEvent { window_id, event: WindowEvent::KeyboardInput { event, .. } } => {
+                    let KeyEvent { physical_key, state, .. } = event;
+                    if let winit::keyboard::PhysicalKey::Code(code) = physical_key {
+                        match code {
+                            KeyCode::Digit1 => keys[1] = state.is_pressed(),
+                            KeyCode::Digit2 => keys[2] = state.is_pressed(),
+                            KeyCode::Digit3 => keys[3] = state.is_pressed(),
+                            KeyCode::Digit4 => keys[0xC] = state.is_pressed(),
+                            KeyCode::KeyQ => keys[4] = state.is_pressed(),
+                            KeyCode::KeyW => keys[5] = state.is_pressed(),
+                            KeyCode::KeyE => keys[6] = state.is_pressed(),
+                            KeyCode::KeyR => keys[0xD] = state.is_pressed(),
+                            KeyCode::KeyA => keys[7] = state.is_pressed(),
+                            KeyCode::KeyS => keys[8] = state.is_pressed(),
+                            KeyCode::KeyD => keys[9] = state.is_pressed(),
+                            KeyCode::KeyF => keys[0xE] = state.is_pressed(),
+                            KeyCode::KeyZ => keys[0xA] = state.is_pressed(),
+                            KeyCode::KeyX => keys[0] = state.is_pressed(),
+                            KeyCode::KeyC => keys[0xB] = state.is_pressed(),
+                            KeyCode::KeyV => keys[0xF] = state.is_pressed(),
+                            _ => ()
+                        }
+                    }
                 },
                 Event::WindowEvent { window_id, event: WindowEvent::CloseRequested } => {
                     elwt.exit();

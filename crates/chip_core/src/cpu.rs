@@ -62,6 +62,9 @@ impl Cpu {
     pub fn set_random_seed(&mut self, val: u32) {
         self.random_seed = val;
     }
+    pub fn set_keys(&mut self, keys: [bool; 0x10]) {
+        self.keys = keys;
+    }
     pub fn step(&mut self) -> Result<(), ChipError> {
         let op = self.get_current_opcode()?;
         self.pc += 2;
