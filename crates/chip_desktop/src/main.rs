@@ -21,7 +21,7 @@ const H: usize = SCALING * SCREEN_HEIGHT;
 const STEP_DELAY_MICROS: u128 = 1440;
 
 fn main() {
-    let ibm = include_bytes!("../../../.local/keypad.ch8");
+    let ibm = include_bytes!("../../../.local/Tetris.ch8");
     println!("CHIP-8");
 
     let mut cpu = Cpu::new();
@@ -98,7 +98,7 @@ fn main() {
                     elwt.exit();
                 },
                 Event::AboutToWait => {
-                    if tick.elapsed().as_secs_f32() >= 1. {
+                    if tick.elapsed().as_secs_f32() >= 1./60. {
                         tick = std::time::Instant::now();
                         cpu.decrease_timers();
                     }

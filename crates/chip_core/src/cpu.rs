@@ -772,7 +772,8 @@ mod tests {
     fn op_fx0a_go() {
         let mut cpu = Cpu::new();
         cpu.keys = [false; 0x10];
-        cpu.keys[7] = true;
+        cpu.prev_keys[7] = true;
+        cpu.keys[7] = false;
         cpu.pc = 0x200;
         cpu.memory[0x200] = 0xf5;
         cpu.memory[0x201] = 0x0a;
