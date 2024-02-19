@@ -5,7 +5,7 @@ use chip_core::{
     globals::{SCREEN_WIDTH, SCREEN_HEIGHT}
 };
 
-const SCALING: usize = 4;
+const SCALING: usize = 8;
 const W: usize = SCALING * SCREEN_WIDTH;
 const H: usize = SCALING * SCREEN_HEIGHT;
 
@@ -24,18 +24,24 @@ fn main() {
         )
         .unwrap();
 
-    window.limit_update_rate(Some(std::time::Duration::from_micros(16600)));
+    // window.limit_update_rate(None);
+    let mut buffer = [0u32; W * H];
 
     while window.is_open() {
+        let start = std::time::Instant::now();
         if let Err(e) = cpu.step() {
             println!("{:?}", e);
         }
-        let _ = window.update_with_buffer(&get_buffer(&cpu), W, H);
+        if cpu.take_redraw() {
+            read_buffer(&mut buffer, &cpu);
+            let _ = window.update_with_buffer(&buffer, W, H);
+        }
+        std::thread::sleep(std::time::Duration::from_micros(1440).saturating_sub(start.elapsed()));
+        println!("{:?}", start.elapsed());
     }
 }
 
-fn get_buffer(cpu: &Cpu) -> [u32; W * H] {
-    let mut buffer = [0u32; W * H];
+fn read_buffer(buffer: &mut [u32; W * H], cpu: &Cpu) {
     let input = cpu.get_display_buffer();
 
     for y in 0..SCREEN_HEIGHT {
@@ -52,5 +58,4 @@ fn get_buffer(cpu: &Cpu) -> [u32; W * H] {
             }
         }
     }
-    buffer
 }

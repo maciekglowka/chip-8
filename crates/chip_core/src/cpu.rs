@@ -14,7 +14,8 @@ pub struct Cpu {
     sp: usize,
     stack: [u16; STACK_SIZE],
     delay_timer: u8,
-    sound_timer: u8
+    sound_timer: u8,
+    redraw: bool
 }
 impl Cpu {
     pub fn new() -> Self {
@@ -27,7 +28,8 @@ impl Cpu {
             sp: 0,
             stack: [0; STACK_SIZE],
             delay_timer: 0,
-            sound_timer: u8::MAX
+            sound_timer: u8::MAX,
+            redraw: false
         }
     }
     pub fn load_rom(&mut self, addr: u16, data: &[u8]) {
@@ -46,11 +48,22 @@ impl Cpu {
     pub fn get_display_buffer(&self) -> &[u8] {
         self.display.get_buffer()
     }
+    /// Checks and clears the redraw flag
+    pub fn take_redraw(&mut self) -> bool {
+        if self.redraw {
+            self.redraw = false;
+            return true;
+        }
+        false
+    }
     pub fn step(&mut self) -> Result<(), ChipError> {
         let op = self.get_current_opcode()?;
         self.pc += 2;
         match op {
-            (0, 0, 0xE, 0) => self.display.clear(),
+            (0, 0, 0xE, 0) => {
+                self.display.clear();
+                self.redraw = true;
+            },
             (0, 0, 0xE, 0xE) => self.pc = self.pop_stack()?,
             // machine subroutine -> ignored
             (0, _, _, _) => (),
@@ -81,6 +94,7 @@ impl Cpu {
                     n as usize
                 );
                 self.v[0xF] = if flag == 0 { 1 } else { 0 };
+                self.redraw = true;
             },
             _ => return Err(ChipError::IllegalInst(u16_from_two(
                 self.memory[self.pc as usize - 2],
