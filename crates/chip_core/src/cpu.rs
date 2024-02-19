@@ -9,7 +9,7 @@ use crate::{
 pub struct Cpu {
     memory: [u8; RAM_SIZE],
     display: Display,
-    v: [u8; REG_COUNT],
+    pub v: [u8; REG_COUNT],
     pc: u16,
     i: u16,
     sp: usize,

@@ -173,4 +173,17 @@ mod tests {
         assert!(display.buffer[target + 2*row_offset] == 0b10111011);
         assert!(display.buffer[target + 3*row_offset] == 0x0);
     }
+    #[test]
+    fn blit_sprite_multi_line_collision_bottom() {
+        let mut display = Display::new();
+        display.buffer[SCREEN_BUFFER_SIZE - 2] = 0b00111100;
+        let sprite = [
+            0b00111100,
+            0b00111100,
+            0b00111100,
+        ];
+        let flag = display.blit_sprite(SCREEN_WIDTH - 13, SCREEN_HEIGHT - 3, &sprite, 3);
+        assert!(flag != 0x0);
+        assert!(display.buffer[SCREEN_BUFFER_SIZE - 2] == 0b00111011);
+    }
 }

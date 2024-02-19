@@ -61,13 +61,14 @@ fn main() {
                         println!("{:?}", e);
                     }
                     if cpu.take_redraw() {
+                        println!("{:?}", cpu.v[0xf]);
                         let mut buffer = surface.buffer_mut().unwrap();
                         // let start = std::time::Instant::now();
                         read_buffer(&mut buffer, &cpu);
                         // println!("Redraw {}", start.elapsed().as_secs_f32());
                         buffer.present().unwrap();
                     }
-                    println!("{} {}", 1. / start.elapsed().as_secs_f32(), start.elapsed().as_secs_f32());
+                    // println!("{} {}", 1. / start.elapsed().as_secs_f32(), start.elapsed().as_secs_f32());
                     start = std::time::Instant::now();
                 },
                 Event::WindowEvent { window_id, event: WindowEvent::KeyboardInput { event, .. } } => {
