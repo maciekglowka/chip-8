@@ -1,7 +1,8 @@
 use crate::{
     display::Display,
     errors::ChipError,
-    globals::{RAM_SIZE, STACK_SIZE, REG_COUNT},
+    font::FONT,
+    globals::{RAM_SIZE, STACK_SIZE, REG_COUNT, FONT_ADDR},
     utils::{u8_from_two, u16_from_two, u16_from_three}
 };
 
@@ -15,12 +16,13 @@ pub struct Cpu {
     stack: [u16; STACK_SIZE],
     delay_timer: u8,
     sound_timer: u8,
+    keys: [bool; 0x10],
     random_seed: u32,
     redraw: bool
 }
 impl Cpu {
     pub fn new() -> Self {
-        Cpu {
+        let mut cpu = Cpu {
             memory: [0; RAM_SIZE],
             display: Display::new(),
             v: [0; REG_COUNT],
@@ -30,9 +32,12 @@ impl Cpu {
             stack: [0; STACK_SIZE],
             delay_timer: 0,
             sound_timer: u8::MAX,
+            keys: [false; 0x10],
             random_seed: 0x5321a409,
             redraw: false,
-        }
+        };
+        cpu.load(FONT_ADDR, &FONT);
+        cpu
     }
     pub fn load_rom(&mut self, addr: u16, data: &[u8]) {
         self.load(addr, data);
@@ -145,6 +150,36 @@ impl Cpu {
                 self.set_flag(flag != 0);
                 self.redraw = true;
             },
+            (0xE, x, 9, 0xE) => if *self.get_key(*self.get_reg(x)?)? { self.pc += 2 },
+            (0xE, x, 0xA, 1) => if !*self.get_key(*self.get_reg(x)?)? { self.pc += 2 },
+            (0xF, x, 0, 7) => self.set_reg(x, self.delay_timer)?,
+            (0xF, x, 0, 0xA) => {
+                if let Some(pressed) = self.keys.iter().enumerate().find(|(_, a)| **a) {
+                    self.set_reg(x, pressed.0 as u8)?;
+                } else {
+                    self.pc -= 2;
+                }
+            },
+            (0xF, x, 1, 5) => self.delay_timer = *self.get_reg(x)?,
+            (0xF, x, 1, 8) => self.sound_timer = *self.get_reg(x)?,
+            (0xF, x, 1, 0xE) => self.i = self.i.wrapping_add(*self.get_reg(x)? as u16),
+            (0xF, x, 2, 9) => self.i = FONT_ADDR + *self.get_reg(x)? as u16,
+            (0xF, x, 3, 3) => {
+                let val = *self.get_reg(x)?;
+                self.memory[self.i as usize] = val / 100;
+                self.memory[self.i as usize + 1] = val % 100 / 10;
+                self.memory[self.i as usize + 2] = val % 10;
+            },
+            (0xF, x, 5, 5) => {
+                for t in 0..=x {
+                    self.memory[self.i as usize + t as usize] = *self.get_reg(t)?;
+                }
+            },
+            (0xF, x, 6, 5) => {
+                for t in 0..=x {
+                    self.set_reg(t, self.memory[self.i as usize + t as usize])?;
+                }
+            },
             _ => return Err(ChipError::IllegalInst(u16_from_two(
                 self.memory[self.pc as usize - 2],
                 self.memory[self.pc as usize - 1]
@@ -170,6 +205,9 @@ impl Cpu {
     fn set_reg(&mut self, i: u8, val: u8) -> Result<(), ChipError> {
         *(self.v.get_mut(i as usize).ok_or(ChipError::IllegalReg(i))?) = val; 
         Ok(())
+    }
+    fn get_key(&self, i: u8) -> Result<&bool, ChipError> {
+        self.keys.get(i as usize).ok_or(ChipError::IllegalKey(i))
     }
     fn push_stack(&mut self, val: u16) -> Result<(), ChipError> {
         self.stack[self.sp] = val;
@@ -652,5 +690,213 @@ mod tests {
         assert!(cpu.v[0xF] == 1);
         assert!(buffer[0] == 0b11111111);
         assert!(buffer[1] == 0b00100010);
+    }
+    #[test]
+    fn op_ex9e_skip() {
+        let mut cpu = Cpu::new();
+        cpu.pc = 0x200;
+        cpu.keys[7] = true;
+        cpu.v[3] = 0x07;
+        cpu.memory[0x200] = 0xe3;
+        cpu.memory[0x201] = 0x9e;
+        let _ = cpu.step();
+        assert!(cpu.pc == 0x0204);
+    }
+    #[test]
+    fn op_ex9e_dont_skip() {
+        let mut cpu = Cpu::new();
+        cpu.pc = 0x200;
+        cpu.keys[7] = false;
+        cpu.v[3] = 0x07;
+        cpu.memory[0x200] = 0xe3;
+        cpu.memory[0x201] = 0x9e;
+        let _ = cpu.step();
+        assert!(cpu.pc == 0x0202);
+    }
+    #[test]
+    fn op_exa1_skip() {
+        let mut cpu = Cpu::new();
+        cpu.pc = 0x200;
+        cpu.keys[7] = false;
+        cpu.v[3] = 0x07;
+        cpu.memory[0x200] = 0xe3;
+        cpu.memory[0x201] = 0xa1;
+        let _ = cpu.step();
+        assert!(cpu.pc == 0x0204);
+    }
+    #[test]
+    fn op_exa1_dont_skip() {
+        let mut cpu = Cpu::new();
+        cpu.pc = 0x200;
+        cpu.keys[7] = true;
+        cpu.v[3] = 0x07;
+        cpu.memory[0x200] = 0xe3;
+        cpu.memory[0x201] = 0xa1;
+        let _ = cpu.step();
+        assert!(cpu.pc == 0x0202);
+    }
+    #[test]
+    fn op_fx07() {
+        let mut cpu = Cpu::new();
+        cpu.pc = 0x200;
+        cpu.delay_timer = 0x53;
+        cpu.memory[0x200] = 0xf3;
+        cpu.memory[0x201] = 0x07;
+        let _ = cpu.step();
+        assert!(cpu.pc == 0x0202);
+        assert!(cpu.v[3] == 0x53);
+    }
+    #[test]
+    fn op_fx0a_wait() {
+        let mut cpu = Cpu::new();
+        cpu.keys = [false; 0x10];
+        cpu.pc = 0x200;
+        cpu.memory[0x200] = 0xf5;
+        cpu.memory[0x201] = 0x0a;
+        let _ = cpu.step();
+        assert!(cpu.pc == 0x0200);
+        assert!(cpu.v[5] == 0x00);
+    }
+    #[test]
+    fn op_fx0a_go() {
+        let mut cpu = Cpu::new();
+        cpu.keys = [false; 0x10];
+        cpu.keys[7] = true;
+        cpu.pc = 0x200;
+        cpu.memory[0x200] = 0xf5;
+        cpu.memory[0x201] = 0x0a;
+        let _ = cpu.step();
+        assert!(cpu.pc == 0x0202);
+        assert!(cpu.v[5] == 0x07);
+    }
+    #[test]
+    fn op_fx15() {
+        let mut cpu = Cpu::new();
+        cpu.pc = 0x200;
+        cpu.delay_timer = 0x53;
+        cpu.v[3] = 0x17;
+        cpu.memory[0x200] = 0xf3;
+        cpu.memory[0x201] = 0x15;
+        let _ = cpu.step();
+        assert!(cpu.pc == 0x0202);
+        assert!(cpu.delay_timer == 0x17);
+    }
+    #[test]
+    fn op_fx18() {
+        let mut cpu = Cpu::new();
+        cpu.pc = 0x200;
+        cpu.sound_timer = 0x53;
+        cpu.v[3] = 0x17;
+        cpu.memory[0x200] = 0xf3;
+        cpu.memory[0x201] = 0x18;
+        let _ = cpu.step();
+        assert!(cpu.pc == 0x0202);
+        assert!(cpu.sound_timer == 0x17);
+    }
+    #[test]
+    fn op_fx1e() {
+        let mut cpu = Cpu::new();
+        cpu.pc = 0x200;
+        cpu.i = 0x0150;
+        cpu.v[3] = 0x17;
+        cpu.memory[0x200] = 0xf3;
+        cpu.memory[0x201] = 0x1e;
+        let _ = cpu.step();
+        assert!(cpu.pc == 0x0202);
+        assert!(cpu.i == 0x167);
+    }
+    #[test]
+    fn op_fx29() {
+        let mut cpu = Cpu::new();
+        cpu.pc = 0x200;
+        cpu.i = 0x0150;
+        cpu.v[3] = 0x09;
+        cpu.memory[0x200] = 0xf3;
+        cpu.memory[0x201] = 0x29;
+        let _ = cpu.step();
+        assert!(cpu.pc == 0x0202);
+        assert!(cpu.i == FONT_ADDR + 0x09);
+    }
+    #[test]
+    fn op_fx33() {
+        let mut cpu = Cpu::new();
+        cpu.pc = 0x200;
+        cpu.i = 0x0150;
+        cpu.v[5] = 0x9c;
+        cpu.memory[0x200] = 0xf5;
+        cpu.memory[0x201] = 0x33;
+        let _ = cpu.step();
+        assert!(cpu.pc == 0x0202);
+        assert!(cpu.memory[0x0150] == 1);
+        assert!(cpu.memory[0x0151] == 5);
+        assert!(cpu.memory[0x0152] == 6);
+    }
+    #[test]
+    fn op_fx55() {
+        let mut cpu = Cpu::new();
+        cpu.pc = 0x200;
+        cpu.i = 0x0150;
+        cpu.v[0] = 0xcc;
+        cpu.v[1] = 0x07;
+        cpu.v[2] = 0xee;
+        cpu.v[3] = 0x9c;
+        cpu.v[4] = 0xfe;
+        cpu.memory[0x200] = 0xf3;
+        cpu.memory[0x201] = 0x55;
+        let _ = cpu.step();
+        assert!(cpu.pc == 0x0202);
+        assert!(cpu.memory[0x0150] == 0xcc);
+        assert!(cpu.memory[0x0151] == 0x07);
+        assert!(cpu.memory[0x0152] == 0xee);
+        assert!(cpu.memory[0x0153] == 0x9c);
+        assert!(cpu.memory[0x0154] == 0x00);
+    }
+    #[test]
+    fn op_fx55_0() {
+        let mut cpu = Cpu::new();
+        cpu.pc = 0x200;
+        cpu.i = 0x0150;
+        cpu.v[0] = 0xcc;
+        cpu.v[1] = 0x07;
+        cpu.memory[0x200] = 0xf0;
+        cpu.memory[0x201] = 0x55;
+        let _ = cpu.step();
+        assert!(cpu.pc == 0x0202);
+        assert!(cpu.memory[0x0150] == 0xcc);
+        assert!(cpu.memory[0x0151] == 0x00);
+    }
+    #[test]
+    fn op_fx65() {
+        let mut cpu = Cpu::new();
+        cpu.pc = 0x200;
+        cpu.i = 0x0150;
+        cpu.memory[0x0150] = 0xcc;
+        cpu.memory[0x0151] = 0x07;
+        cpu.memory[0x0152] = 0xee;
+        cpu.memory[0x0153] = 0x9c;
+        
+        cpu.memory[0x200] = 0xf2;
+        cpu.memory[0x201] = 0x65;
+        let _ = cpu.step();
+        assert!(cpu.pc == 0x0202);
+        assert!(cpu.v[0] == 0xcc);
+        assert!(cpu.v[1] == 0x07);
+        assert!(cpu.v[2] == 0xee);
+        assert!(cpu.v[3] == 0x00);
+    }
+    #[test]
+    fn op_fx65_0() {
+        let mut cpu = Cpu::new();
+        cpu.pc = 0x200;
+        cpu.i = 0x0150;
+        cpu.memory[0x0150] = 0xcc;
+        cpu.memory[0x0151] = 0x07;
+        
+        cpu.memory[0x200] = 0xf0;
+        cpu.memory[0x201] = 0x65;
+        let _ = cpu.step();
+        assert!(cpu.pc == 0x0202);
+        assert!(cpu.v[0] == 0xcc);
+        assert!(cpu.v[1] == 0x00);
     }
 }
