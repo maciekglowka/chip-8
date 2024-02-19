@@ -20,7 +20,7 @@ const H: usize = SCALING * SCREEN_HEIGHT;
 const STEP_DELAY_MICROS: u128 = 1440;
 
 fn main() {
-    let ibm = include_bytes!("../../../.local/ibm.ch8");
+    let ibm = include_bytes!("../../../.local/flags.ch8");
     println!("CHIP-8");
 
     let mut cpu = Cpu::new();

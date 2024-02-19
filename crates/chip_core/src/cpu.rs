@@ -104,24 +104,24 @@ impl Cpu {
             (8, x, y, 5) => {
                 let (val, overflow) = self.get_reg(x)?.overflowing_sub(*self.get_reg(y)?);
                 self.set_reg(x, val)?;
-                self.set_flag(overflow);
+                self.set_flag(!overflow);
             },
             (8, x, y, 6) => {
                 // TODO configure op ambuguity
                 let val = *self.get_reg(y)?;
-                self.set_flag(val & 1 == 1);
                 self.set_reg(x, val >> 1)?;
+                self.set_flag(val & 1 == 1);
             },
             (8, x, y, 7) => {
                 let (val, overflow) = self.get_reg(y)?.overflowing_sub(*self.get_reg(x)?);
                 self.set_reg(x, val)?;
-                self.set_flag(overflow);
+                self.set_flag(!overflow);
             },
             (8, x, y, 0xE) => {
                 // TODO configure op ambuguity
                 let val = *self.get_reg(y)?;
-                self.set_flag(val >> 7 == 1);
                 self.set_reg(x, val << 1)?;
+                self.set_flag(val >> 7 == 1);
             },
             (9, x, y, 0) => if self.get_reg(x)? != self.get_reg(y)? {
                 self.pc += 2;
@@ -480,7 +480,7 @@ mod tests {
         cpu.memory[0x201] = 0xA5;
         let _ = cpu.step();
         assert!(cpu.v[5] == 0x12);
-        assert!(cpu.v[0xF] == 0x00);
+        assert!(cpu.v[0xF] == 0x01);
         assert!(cpu.pc == 0x202);
     }
     #[test]
@@ -493,7 +493,7 @@ mod tests {
         cpu.memory[0x201] = 0xA5;
         let _ = cpu.step();
         assert!(cpu.v[5] == 0xFF);
-        assert!(cpu.v[0xF] == 0x01);
+        assert!(cpu.v[0xF] == 0x00);
         assert!(cpu.pc == 0x202);
     }
     #[test]
@@ -532,7 +532,7 @@ mod tests {
         cpu.memory[0x201] = 0xA7;
         let _ = cpu.step();
         assert!(cpu.v[5] == 0x12);
-        assert!(cpu.v[0xF] == 0x00);
+        assert!(cpu.v[0xF] == 0x01);
         assert!(cpu.pc == 0x202);
     }
     #[test]
@@ -545,7 +545,7 @@ mod tests {
         cpu.memory[0x201] = 0xA7;
         let _ = cpu.step();
         assert!(cpu.v[5] == 0xFF);
-        assert!(cpu.v[0xF] == 0x01);
+        assert!(cpu.v[0xF] == 0x00);
         assert!(cpu.pc == 0x202);
     }
     #[test]
