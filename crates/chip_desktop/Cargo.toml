@@ -7,4 +7,6 @@ edition = "2021"
 
 [dependencies]
 chip_core = { path = "../chip_core" }
-minifb = { version = "0.25", features = ["x11"] }
+# minifb = { version = "0.25", features = ["x11"] }
+softbuffer = "0.4"
+winit = "0.29"
