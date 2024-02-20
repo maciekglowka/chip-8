@@ -44,7 +44,7 @@ impl Display {
             flag = self.buffer[i] & data;
             self.buffer[i] ^= data;
         } else {
-            let mut b = self.buffer[i] >> offset;
+            let mut b = self.buffer[i] << offset;
             self.buffer[i] ^= data >> offset;
             if i + 1 < SCREEN_BUFFER_SIZE {
                 b |= self.buffer[i+1] >> (8 - offset);
@@ -174,16 +174,39 @@ mod tests {
         assert!(display.buffer[target + 3*row_offset] == 0x0);
     }
     #[test]
-    fn blit_sprite_multi_line_collision_bottom() {
+    fn blit_sprite_collision_right() {
         let mut display = Display::new();
-        display.buffer[SCREEN_BUFFER_SIZE - 2] = 0b00111100;
-        let sprite = [
-            0b00111100,
-            0b00111100,
-            0b00111100,
-        ];
-        let flag = display.blit_sprite(SCREEN_WIDTH - 13, SCREEN_HEIGHT - 3, &sprite, 3);
+        display.buffer[SCREEN_BUFFER_SIZE - 2] = 0b00111111;
+        let sprite = [0b10000000];
+        let flag = display.blit_sprite(SCREEN_WIDTH - 9, SCREEN_HEIGHT - 1, &sprite, 1);
         assert!(flag != 0x0);
-        assert!(display.buffer[SCREEN_BUFFER_SIZE - 2] == 0b00111011);
+        assert!(display.buffer[SCREEN_BUFFER_SIZE - 2] == 0b00111110);
+    }
+    #[test]
+    fn blit_sprite_collision_left() {
+        let mut display = Display::new();
+        display.buffer[SCREEN_BUFFER_SIZE - 2] = 0b11110000;
+        let sprite = [0b10000000];
+        let flag = display.blit_sprite(SCREEN_WIDTH - 16, SCREEN_HEIGHT - 1, &sprite, 1);
+        assert!(flag != 0x0);
+        assert!(display.buffer[SCREEN_BUFFER_SIZE - 2] == 0b01110000);
+    }
+    #[test]
+    fn blit_sprite_collision_right_1_1() {
+        let mut display = Display::new();
+        display.buffer[SCREEN_BUFFER_SIZE - 2] = 0b00000001;
+        let sprite = [0b10000000];
+        let flag = display.blit_sprite(SCREEN_WIDTH - 9, SCREEN_HEIGHT - 1, &sprite, 1);
+        assert!(flag != 0x0);
+        assert!(display.buffer[SCREEN_BUFFER_SIZE - 2] == 0b00000000);
+    }
+    #[test]
+    fn blit_sprite_collision_left_1_1() {
+        let mut display = Display::new();
+        display.buffer[SCREEN_BUFFER_SIZE - 2] = 0b10000000;
+        let sprite = [0b10000000];
+        let flag = display.blit_sprite(SCREEN_WIDTH - 16, SCREEN_HEIGHT - 1, &sprite, 1);
+        assert!(flag != 0x0);
+        assert!(display.buffer[SCREEN_BUFFER_SIZE - 2] == 0b00000000);
     }
 }

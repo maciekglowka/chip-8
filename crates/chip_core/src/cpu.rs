@@ -508,12 +508,17 @@ mod tests {
     #[test]
     fn op_8xy6_set() {
         let mut cpu = Cpu::new();
+        cpu.v[5] = 0b10011101;
         cpu.v[0xA] = 0b10011001;
         cpu.pc = 0x200;
         cpu.memory[0x200] = 0x85;
         cpu.memory[0x201] = 0xA6;
         let _ = cpu.step();
-        assert!(cpu.v[5] == 0b01001100);
+        if SHIFT_OP_USE_VY {
+            assert!(cpu.v[5] == 0b01001100);
+        } else {
+            assert!(cpu.v[5] == 0b01001110);
+        }
         assert!(cpu.v[0xA] == 0b10011001);
         assert!(cpu.v[0xF] == 0x01);
         assert!(cpu.pc == 0x202);
@@ -521,12 +526,17 @@ mod tests {
     #[test]
     fn op_8xy6_clear() {
         let mut cpu = Cpu::new();
+        cpu.v[5] = 0b10011100;
         cpu.v[0xA] = 0b10011000;
         cpu.pc = 0x200;
         cpu.memory[0x200] = 0x85;
         cpu.memory[0x201] = 0xA6;
         let _ = cpu.step();
-        assert!(cpu.v[5] == 0b01001100);
+        if SHIFT_OP_USE_VY {
+            assert!(cpu.v[5] == 0b01001100);
+        } else {
+            assert!(cpu.v[5] == 0b01001110);
+        }
         assert!(cpu.v[0xA] == 0b10011000);
         assert!(cpu.v[0xF] == 0x00);
         assert!(cpu.pc == 0x202);
@@ -560,12 +570,17 @@ mod tests {
     #[test]
     fn op_8xye_set() {
         let mut cpu = Cpu::new();
+        cpu.v[5] = 0b10011101;
         cpu.v[0xA] = 0b10011001;
         cpu.pc = 0x200;
         cpu.memory[0x200] = 0x85;
         cpu.memory[0x201] = 0xAE;
         let _ = cpu.step();
-        assert!(cpu.v[5] == 0b00110010);
+        if SHIFT_OP_USE_VY {
+            assert!(cpu.v[5] == 0b00110010);
+        } else {
+            assert!(cpu.v[5] == 0b00111010);
+        }
         assert!(cpu.v[0xA] == 0b10011001);
         assert!(cpu.v[0xF] == 0x01);
         assert!(cpu.pc == 0x202);
@@ -573,12 +588,17 @@ mod tests {
     #[test]
     fn op_8xye_clear() {
         let mut cpu = Cpu::new();
+        cpu.v[5] = 0b00011101;
         cpu.v[0xA] = 0b00011001;
         cpu.pc = 0x200;
         cpu.memory[0x200] = 0x85;
         cpu.memory[0x201] = 0xAE;
         let _ = cpu.step();
-        assert!(cpu.v[5] == 0b00110010);
+        if SHIFT_OP_USE_VY {
+            assert!(cpu.v[5] == 0b00110010);
+        } else {
+            assert!(cpu.v[5] == 0b00111010);
+        }
         assert!(cpu.v[0xA] == 0b00011001);
         assert!(cpu.v[0xF] == 0x00);
         assert!(cpu.pc == 0x202);

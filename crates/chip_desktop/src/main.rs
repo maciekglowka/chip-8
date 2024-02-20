@@ -25,7 +25,7 @@ const STEP_DELAY_SECONDS: f32 = 1. / 480.;
 const TIMER_FACTOR: usize = 8;
 
 fn main() {
-    let ibm = include_bytes!("../../../.local/INVADERS");
+    let ibm = include_bytes!("../../../.local/Tetris.ch8");
     println!("CHIP-8");
 
     let mut cpu = Cpu::new();
