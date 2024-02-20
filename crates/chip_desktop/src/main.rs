@@ -3,7 +3,7 @@ use std::{
     rc::Rc
 };
 use winit::{
-    event::{Event, WindowEvent, KeyEvent, ElementState},
+    event::{Event, WindowEvent, KeyEvent},
     dpi::PhysicalSize,
     event_loop::{EventLoop, ControlFlow},
     keyboard::KeyCode,
@@ -15,6 +15,8 @@ use chip_core::{
     globals::{SCREEN_WIDTH, SCREEN_HEIGHT}
 };
 
+mod audio;
+
 const SCALING: usize = 8;
 const W: usize = SCALING * SCREEN_WIDTH;
 const H: usize = SCALING * SCREEN_HEIGHT;
@@ -25,11 +27,16 @@ const STEP_DELAY_SECONDS: f32 = 1. / 480.;
 const TIMER_FACTOR: usize = 8;
 
 fn main() {
-    let ibm = include_bytes!("../../../.local/Tetris.ch8");
     println!("CHIP-8");
+    let mut audio_device = audio::get_device();
+    if let Some(_) = &mut audio_device {
+        println!("Got Audio Device");
+    }
+
+    let rom = include_bytes!("../../../.local/Brix.ch8");
 
     let mut cpu = Cpu::new();
-    cpu.load_rom(0x200, ibm);
+    cpu.load_rom(0x200, rom);
 
     
     // let mut buffer = [0u32; W * H];
@@ -61,7 +68,6 @@ fn main() {
                 },
                 Event::WindowEvent { window_id, event: WindowEvent::RedrawRequested } => {
                     if start.elapsed().as_secs_f32() >= STEP_DELAY_SECONDS {
-                        
                         cpu.set_keys(keys);
                         
                         if let Err(e) = cpu.step() {
@@ -81,6 +87,10 @@ fn main() {
                             cpu.decrease_timers();
                             timer = 0;
                             buffer.present().unwrap();
+
+                            if let Some(device) = &mut audio_device {
+                                if cpu.beeps() { device.beep() } else { device.stop() }
+                            }
                         }
                         // println!("{} {}", 1. / start.elapsed().as_secs_f32(), start.elapsed().as_secs_f32());
                         start = std::time::Instant::now();

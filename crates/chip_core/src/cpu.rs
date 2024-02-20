@@ -72,6 +72,9 @@ impl Cpu {
         self.delay_timer = self.delay_timer.saturating_sub(1);
         self.sound_timer = self.sound_timer.saturating_sub(1);
     }
+    pub fn beeps(&self) -> bool {
+        self.sound_timer > 0
+    }
     pub fn step(&mut self) -> Result<(), ChipError> {
         let op = self.get_current_opcode()?;
         self.pc += 2;
