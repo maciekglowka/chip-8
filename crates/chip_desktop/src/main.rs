@@ -18,10 +18,14 @@ use chip_core::{
 const SCALING: usize = 8;
 const W: usize = SCALING * SCREEN_WIDTH;
 const H: usize = SCALING * SCREEN_HEIGHT;
-const STEP_DELAY_MICROS: u128 = 1440;
+const GAP_V: usize = 2;
+const GAP_H: usize = 2;
+
+const STEP_DELAY_SECONDS: f32 = 1. / 480.;
+const TIMER_FACTOR: usize = 8;
 
 fn main() {
-    let ibm = include_bytes!("../../../.local/airplane.chip8");
+    let ibm = include_bytes!("../../../.local/INVADERS");
     println!("CHIP-8");
 
     let mut cpu = Cpu::new();
@@ -40,12 +44,12 @@ fn main() {
     );
     let context = softbuffer::Context::new(window.clone()).unwrap();
     let mut surface = softbuffer::Surface::new(&context, window.clone()).unwrap();
-    let mut start = std::time::Instant::now();
-    let mut tick = std::time::Instant::now();
-
+    
     event_loop.set_control_flow(ControlFlow::Poll);
-
+    
     let mut keys = [false; 0x10];
+    let mut start = std::time::Instant::now();
+    let mut timer = 0;
 
     event_loop.run(move |event, elwt| {
             match event {
@@ -56,20 +60,31 @@ fn main() {
                     );
                 },
                 Event::WindowEvent { window_id, event: WindowEvent::RedrawRequested } => {
-                    cpu.set_keys(keys);
-                    if let Err(e) = cpu.step() {
-                        println!("{:?}", e);
-                    }
-                    if cpu.take_redraw() {
-                        // println!("{:?}", cpu.v[0xf]);
+                    if start.elapsed().as_secs_f32() >= STEP_DELAY_SECONDS {
+                        
+                        cpu.set_keys(keys);
+                        
+                        if let Err(e) = cpu.step() {
+                            println!("{:?}", e);
+                        }
                         let mut buffer = surface.buffer_mut().unwrap();
-                        // let start = std::time::Instant::now();
-                        read_buffer(&mut buffer, &cpu);
-                        // println!("Redraw {}", start.elapsed().as_secs_f32());
-                        buffer.present().unwrap();
+                        if cpu.take_redraw() {
+                            // println!("{:?}", cpu.v[0xf]);
+                            // let start = std::time::Instant::now();
+                            read_buffer(&mut buffer, &cpu);
+                            // println!("Redraw {}", start.elapsed().as_secs_f32());
+                        }
+
+                        timer += 1;
+                        if timer > TIMER_FACTOR {
+                            // update timers and buffer at 60Hz
+                            cpu.decrease_timers();
+                            timer = 0;
+                            buffer.present().unwrap();
+                        }
+                        // println!("{} {}", 1. / start.elapsed().as_secs_f32(), start.elapsed().as_secs_f32());
+                        start = std::time::Instant::now();
                     }
-                    // println!("{} {}", 1. / start.elapsed().as_secs_f32(), start.elapsed().as_secs_f32());
-                    start = std::time::Instant::now();
                 },
                 Event::WindowEvent { window_id, event: WindowEvent::KeyboardInput { event, .. } } => {
                     let KeyEvent { physical_key, state, .. } = event;
@@ -99,14 +114,8 @@ fn main() {
                     elwt.exit();
                 },
                 Event::AboutToWait => {
-                    if tick.elapsed().as_secs_f32() >= 1./60. {
-                        tick = std::time::Instant::now();
-                        cpu.decrease_timers();
-                    }
-                    if start.elapsed().as_micros() >= STEP_DELAY_MICROS {
-                        window.request_redraw();
-                    }
-                }
+                    window.request_redraw();
+                },
                 _ => ()
             }
         }).unwrap();
@@ -121,12 +130,12 @@ where D: winit::raw_window_handle::HasDisplayHandle, W: winit::raw_window_handle
         for x in 0..SCREEN_WIDTH/8 {
             for i in 0..8 {
                 let val = (input[y*SCREEN_WIDTH/8 + x] >> (7-i) & 0x01) as u32 * 255;
-                let slice = [val; SCALING];
+                let slice = [val; SCALING - GAP_V];
                 let dx = (8 * x + i) * SCALING;
-                for sy in 0..SCALING {
+                for sy in GAP_H..SCALING {
                     let dy = y * SCALING + sy;
                     let start = dy * W + dx;
-                    buffer[start..start + SCALING].copy_from_slice(&slice);
+                    buffer[start + GAP_V..start + SCALING].copy_from_slice(&slice);
                 }
             }
         }
