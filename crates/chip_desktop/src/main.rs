@@ -33,7 +33,7 @@ fn main() {
         println!("Got Audio Device");
     }
 
-    let rom = include_bytes!("../../../.local/Brix.ch8");
+    let rom = include_bytes!("../../../.local/brix.ch8");
 
     let mut cpu = Cpu::new();
     cpu.load_rom(0x200, rom);

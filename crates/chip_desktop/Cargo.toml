@@ -10,4 +10,5 @@ chip_core = { path = "../chip_core" }
 
 cpal = "0.15"
 softbuffer = "0.4"
+tinyaudio = "0.1"
 winit = "0.29"
